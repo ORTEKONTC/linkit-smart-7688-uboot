@@ -1304,7 +1304,9 @@ int check_image_validation(void)
 
 #define PIO_DIR0	0x00
 #define PIO_DIR1	0x04
+#define PIO_DATA0	0x20
 #define PIO_DATA1	0x24
+#define PIO_SET0	0x30
 #define PIO_SET1	0x34
 #define PIO_CLEAR0	0x40
 #define PIO_CLEAR1	0x44
@@ -2018,7 +2020,7 @@ __attribute__((nomips16)) void board_init_r (gd_t *id, ulong dest_addr)
 	// set /GPIO44
 	RALINK_REG(RALINK_PIO_BASE+PIO_SET1) |= (1 << 12);
 
-	// BUTTON
+	// Jumper pin. F1 name.
 	// set GPIO38 to normal gpio
 	RALINK_REG(RALINK_SYSCTL_BASE+GPIOMODE) |= (1 << 14);
 	// set GPIO38 to input
@@ -2026,39 +2028,45 @@ __attribute__((nomips16)) void board_init_r (gd_t *id, ulong dest_addr)
 	g &= ~(1 << 6);
 	RALINK_REG(RALINK_PIO_BASE+PIO_DIR1) = g;
 	// check if GPIO38 is set
-	reg = RALINK_REG(RALINK_PIO_BASE+PIO_DATA1);
+ 	u32 reg_jumper = RALINK_REG(RALINK_PIO_BASE+PIO_DATA1);
 
+	// Button. RESET name.
+	// set GPIO3 to normal gpio
+	RALINK_REG(RALINK_SYSCTL_BASE+GPIOMODE) |= (1 << 6);
+	// set GPIO3 to input
+	g = RALINK_REG(RALINK_PIO_BASE+PIO_DIR0);
+	g &= ~(1 << 3);
+	RALINK_REG(RALINK_PIO_BASE+PIO_DIR0) = g;
+	// check if GPIO3 is set
+	u32 reg_button = RALINK_REG(RALINK_PIO_BASE+PIO_DATA0);
 
 	printf("\nGPIOMODE --> %x\n", RALINK_REG(RALINK_SYSCTL_BASE+GPIOMODE));
 	printf("\nGPIOMODE2 --> %x\n", RALINK_REG(RALINK_SYSCTL_BASE+GPIOMODE2));
 
-	reg &= (1 << 6);
-	if (!reg) {
-		RALINK_REG(RALINK_PIO_BASE+PIO_CLEAR1) |= (1 << 12);
-		printf("\n\nRESET BUTTON PRESSED\n");
-		timer1 = 0;
-		while (!(RALINK_REG(RALINK_PIO_BASE+PIO_DATA1) & (1 << 6)))
-		{
-			for (i=0; i<100; ++i)
-				udelay (10000);
-			timer1++;
-			if (timer1 == 3)
-				RALINK_REG(RALINK_PIO_BASE+PIO_SET1) |= (1 << 12);
-			if (timer1 == 20)
-				RALINK_REG(RALINK_PIO_BASE+PIO_CLEAR1) |= (1 << 12);
-		}
-		printf("button pressed for %d s\n", timer1);
+	{
+	  char env_name[] = "boot_version";
+    	  char *s = getenv(env_name);
+    	  printf("\n\nboot_version is %s\n", s);
+    	  const char boot_version[] = RALINK_LOCAL_VERSION;
+    	  if (s == NULL || strcmp(s, boot_version) != 0) {
+      	    setenv(env_name, boot_version);
+      	    saveenv();
+      	    printf("\n\nNew boot_version is %s\n", boot_version);
+    	  }
+  	}
 
-		if (timer1 < 3) {
-			timer1= CONFIG_BOOTDELAY;
-			BootType = 'c';
-		} else if (timer1 < 18) {
-			BootType = '5';
-			timer1 = 0;
-		} else {
-			BootType = 'b';
-			timer1 = 0;
-		}
+  	reg_jumper &= (1 << 6);
+  	if (!reg_jumper) {
+    	  RALINK_REG(RALINK_PIO_BASE+PIO_CLEAR1) |= (1 << 12);
+    	  printf("\n\nJUMPER F1 INSTALLED!\n");
+
+    	  BootType = '5';
+
+    	  reg_button &= (1 << 3);
+    	  if (!reg_button) {
+      	    printf("\n\nBUTTON PRESSED!\n");
+      	    BootType = 'b';
+  	  }
 	} else {
 		unsigned char mfg_mac[6] = { 0x00, 0x0c, 0x43, 0xe1, 0x76, 0x28 };
 		unsigned char mfg2_mac[6] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
@@ -2095,28 +2103,6 @@ __attribute__((nomips16)) void board_init_r (gd_t *id, ulong dest_addr)
 		}
 	}
 
-	RALINK_REG(RALINK_PIO_BASE+PIO_SET1) |= (1 << 12);
-
-	OperationSelect();
-	while (timer1 > 0) {
-		--timer1;
-		/* delay 100 * 10ms */
-		for (i=0; i<100; ++i) {
-			if ((my_tmp = tstc()) != 0) {	/* we got a key press	*/
-				timer1 = 0;	/* no more delay	*/
-				if(BootType != 'm') BootType = getc();
-                
-				if ((BootType < '0' || BootType > '5') && (BootType != '7') && (BootType != '8') && (BootType != '9') && (BootType != 'b') && (BootType != 'm') && (BootType != 'c'))
-					BootType = '3';
-				printf("\n\rYou choosed %c\n\n", BootType);
-				break;
-			}
-			udelay (10000);
-		}
-		printf ("\b\b\b%2d ", timer1);
-	}
-	putc ('\n');
-
 	// Roger debug
 	if (0) {
 		int i;
@@ -2142,7 +2128,7 @@ __attribute__((nomips16)) void board_init_r (gd_t *id, ulong dest_addr)
 		do_bootm(cmdtp, 0, 2, argv);
 	}
 	else {
-		char *argv[4];
+		char *argv[5];
 		int argc= 3;
 
 		argv[2] = &file_name_space[0];
@@ -2172,6 +2158,52 @@ __attribute__((nomips16)) void board_init_r (gd_t *id, ulong dest_addr)
 			do_tftpb(cmdtp, 0, argc, argv);
 			break;
 
+#if defined (RALINK_USB) || defined (MTK_USB)
+#if defined (CFG_ENV_IS_IN_NAND) || defined (CFG_ENV_IS_IN_SPI)
+		case '5':
+			printf("\n%d: System Load Linux then write to Flash via USB Storage. \n", 5);
+
+			argc = 2;
+			argv[1] = "start";
+			do_usb(cmdtp, 0, argc, argv);
+			if(usb_stor_curr_dev < 0){
+				printf("No USB Storage found. Upgrade F/W failed.\n");
+			}
+      			else {
+			  argc= 5;
+			  argv[1] = "usb";
+			  argv[2] = "0";
+			  sprintf(addr_str, "0x%X", CFG_LOAD_ADDR);
+			  argv[3] = &addr_str[0];
+			  argv[4] = "7453a-*.bin2";
+			  setenv("autostart", "no");
+			  if(do_fat_fsload(cmdtp, 0, argc, argv)){
+			    printf("Could not find FW\n");
+			  } else {
+			    NetBootFileXferSize=simple_strtoul(getenv("filesize"), NULL, 16);
+			    if (NetBootFileXferSize > 0xfb0000 + flash_base) {
+			      printf("FW is too big\n");
+			    } else {
+			      printf("writing FW to flash\n");
+			      raspi_erase_write((char *)CFG_LOAD_ADDR, CFG_KERN_ADDR-CFG_FLASH_BASE, NetBootFileXferSize);
+
+			      printf("FW flashed successfully\n");
+			    }
+			  }
+
+			  RALINK_REG(RALINK_PIO_BASE+PIO_SET1) |= (1 << 12);
+
+//		          //reset
+//		          do_reset(cmdtp, 0, argc, argv);
+
+			argc= 2;
+			sprintf(addr_str, "0x%X", CFG_KERN_ADDR);
+			argv[1] = &addr_str[0];
+			do_bootm(cmdtp, 0, argc, argv);
+			break;
+		      }
+#endif
+#endif // RALINK_UPGRADE_BY_USB //
 		case '2':
 			printf("   \n%d: System Load Linux Kernel then write to Flash via TFTP. \n", SEL_LOAD_LINUX_WRITE_FLASH);
 			printf(" Warning!! Erase Linux in Flash then burn new one. Are you sure?(Y/N)\n");
@@ -2324,6 +2356,50 @@ __attribute__((nomips16)) void board_init_r (gd_t *id, ulong dest_addr)
 			do_tftpb(cmdtp, 0, argc, argv);
 			break;
 
+#if defined (RALINK_USB) || defined (MTK_USB)
+#if defined (CFG_ENV_IS_IN_NAND) || defined (CFG_ENV_IS_IN_SPI)
+		case 'b':
+			printf("\n%d: System Load Uboot then write to Flash via USB Storage. \n", 5);
+
+			argc = 2;
+			argv[1] = "start";
+			do_usb(cmdtp, 0, argc, argv);
+			if( usb_stor_curr_dev < 0){
+			  printf("No USB Storage found. Upgrade F/W failed.\n");
+			}
+		        else {
+			  argc= 5;
+			  argv[1] = "usb";
+			  argv[2] = "0";
+			  sprintf(addr_str, "0x%X", CFG_LOAD_ADDR);
+			  argv[3] = &addr_str[0];
+			  argv[4] = "7453a-boot-*.bin"; // 7453a-boot-vt0_1_rev1.bin
+			  setenv("autostart", "no");
+			  if(do_fat_fsload(cmdtp, 0, argc, argv)){
+			    printf("Could not find bootloader\n");
+			  } else {
+			    NetBootFileXferSize=simple_strtoul(getenv("filesize"), NULL, 16);
+			    if (NetBootFileXferSize > 0x30000) {
+			      printf("Bootloader is too big\n");
+			    } else {
+			      printf("writing bootloader to flash\n");
+			      raspi_erase_write((char *)CFG_LOAD_ADDR, 0, NetBootFileXferSize);
+
+			      printf("Bootloader flashed successfully\n");
+			    }
+			  }
+
+			  RALINK_REG(RALINK_PIO_BASE+PIO_CLEAR1) |= (1 << 12);
+
+			  for (i=0; i<100; ++i)
+			    udelay (20000);
+
+			  RALINK_REG(RALINK_PIO_BASE+PIO_SET1) |= (1 << 12);
+
+			  while(1);
+		        }
+#endif
+#endif // RALINK_UPGRADE_BY_USB //
 		case '9':
 			printf("   \n%d: System Load Boot Loader then write to Flash via TFTP. \n", SEL_LOAD_BOOT_WRITE_FLASH);
 			printf(" Warning!! Erase Boot Loader in Flash then burn new one. Are you sure?(Y/N)\n");
@@ -2402,41 +2478,6 @@ __attribute__((nomips16)) void board_init_r (gd_t *id, ulong dest_addr)
 
 #if defined (RALINK_USB) || defined (MTK_USB)
 #if defined (CFG_ENV_IS_IN_NAND) || defined (CFG_ENV_IS_IN_SPI)
-		case '5':
-			printf("\n%d: System Load Linux then write to Flash via USB Storage. \n", 5);
-
-			argc = 2;
-			argv[1] = "start";
-			do_usb(cmdtp, 0, argc, argv);
-			if( usb_stor_curr_dev < 0){
-				printf("No USB Storage found. Upgrade F/W failed.\n");
-				break;
-			}
-
-			argc= 5;
-			argv[1] = "usb";
-			argv[2] = "0";
-			sprintf(addr_str, "0x%X", CFG_LOAD_ADDR);
-			argv[3] = &addr_str[0];
-			argv[4] = "lks7688.img";
-			setenv("autostart", "no");
-			if(do_fat_fsload(cmdtp, 0, argc, argv)){
-				printf("Could not find lks7688.img\n");
-			} else {
-				NetBootFileXferSize=simple_strtoul(getenv("filesize"), NULL, 16);
-				if (NetBootFileXferSize > 0xfb0000 + flash_base) {
-					printf("lks7688.img is too big\n");
-				} else {
-					printf("writing lks7688.img to flash\n");
-					raspi_erase_write((char *)CFG_LOAD_ADDR, CFG_KERN_ADDR-CFG_FLASH_BASE, NetBootFileXferSize);
-				}
-			}
-
-
-			//reset            
-			do_reset(cmdtp, 0, argc, argv);
-			break;
-
 		case 'c':
 			printf("\n%d: System Load Linux then write to Flash via USB Storage. \n", 5);
 
@@ -2519,39 +2560,6 @@ __attribute__((nomips16)) void board_init_r (gd_t *id, ulong dest_addr)
 			//reset            
 			do_reset(cmdtp, 0, argc, argv);
 			break;
-		case 'b':
-			printf("\n%d: System Load Uboot then write to Flash via USB Storage. \n", 5);
-
-			argc = 2;
-			argv[1] = "start";
-			do_usb(cmdtp, 0, argc, argv);
-			if( usb_stor_curr_dev < 0){
-				printf("No USB Storage found. Upgrade F/W failed.\n");
-				break;
-			}
-
-			argc= 5;
-			argv[1] = "usb";
-			argv[2] = "0";
-			sprintf(addr_str, "0x%X", CFG_LOAD_ADDR);
-			argv[3] = &addr_str[0];
-			argv[4] = "lks7688.ldr";
-			setenv("autostart", "no");
-			if(do_fat_fsload(cmdtp, 0, argc, argv)){
-				printf("Could not find lks7688.ldr\n");
-			} else {
-				NetBootFileXferSize=simple_strtoul(getenv("filesize"), NULL, 16);
-				if (NetBootFileXferSize > 0x30000) {
-					printf("lks7688.ldr is too big\n");
-				} else {
-					printf("writing lks7688.ldr to flash\n");
-					raspi_erase_write((char *)CFG_LOAD_ADDR, 0, NetBootFileXferSize);
-				}
-			}
-
-			//reset            
-			do_reset(cmdtp, 0, argc, argv);
-			break;
 #endif
 #endif // RALINK_UPGRADE_BY_USB //
 
@@ -2561,7 +2569,9 @@ __attribute__((nomips16)) void board_init_r (gd_t *id, ulong dest_addr)
 				do_bootm(cmdtp, 0, 1, argv);
 		
 			break;            
-		} /* end of switch */   
+		} /* end of switch */
+
+                RALINK_REG(RALINK_PIO_BASE+PIO_SET1) |= (1 << 12);
 
 		do_reset(cmdtp, 0, argc, argv);
 

@@ -1014,13 +1014,37 @@ do_fat_read (const char *filename, void *buffer, unsigned long maxsize,
 				continue;
 			}
 
-			if (strcmp(fnamecopy, s_name)
-			    && strcmp(fnamecopy, l_name)) {
-				FAT_PRINTF("RootMismatch: |%s|%s|\n", s_name,
-				       l_name);
-				dentptr++;
-				continue;
-			}
+            // TODO *-boot-*.bin for boot file name.
+            // TODO 7453a-*.bin2 for software file name.
+            char* p = (l_name[0] != '\0') ? l_name : s_name;
+            char *result = strstr(p, ".bin");
+            int bin = 0;
+            if (result) {
+                if (strlen(result) == 4) {
+                    bin = 1;
+                }
+            }
+            result = strstr(p, ".bin2");
+            int bin2 = 0;
+            if (result) {
+                if (strlen(result) == 5) {
+                    bin2 = 1;
+                }
+            }
+            if ((strstr(p, "-boot-") != NULL
+                 && bin
+                 && strstr(fnamecopy, "-boot-"))
+                || (strstr(p, "7453a-v") != NULL
+                    && bin2)) {
+                printf("reading %s\n", (l_name[0] != '\0') ? l_name : s_name);
+            }
+            else {
+                if (strcmp(fnamecopy, s_name) && strcmp(fnamecopy, l_name)) {
+                    FAT_PRINTF("RootMismatch: |%s|%s|\n", s_name, l_name);
+                    dentptr++;
+                    continue;
+                }
+            }
 
 			if (isdir && !(dentptr->attr & ATTR_DIR))
 				goto exit;
@@ -1200,6 +1224,6 @@ int file_fat_ls (const char *dir)
 
 long file_fat_read (const char *filename, void *buffer, unsigned long maxsize)
 {
-	printf("reading %s\n", filename);
+//	printf("reading %s\n", filename);
 	return do_fat_read(filename, buffer, maxsize, LS_NO);
 }
