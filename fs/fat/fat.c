@@ -33,8 +33,8 @@
 #include <asm/addrspace.h>
 //#include <linux/compiler.h>
 #include <part.h>
-#include "../../tsk/tsk.h"
-#include "../../tsk/Xtea.h"
+#include "../../util/tsk/tsk.h"
+#include "../../util/tsk/Xtea.h"
 
 //#define FAT_DEBUG
 
