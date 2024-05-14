@@ -2103,6 +2103,29 @@ __attribute__((nomips16)) void board_init_r (gd_t *id, ulong dest_addr)
 		}
 	}
 
+  // TODO Delete after debugging ...
+  //-->
+//  OperationSelect();
+//  while (timer1 > 0) {
+//    --timer1;
+//    /* delay 100 * 10ms */
+//    for (i=0; i<100; ++i) {
+//      if ((my_tmp = tstc()) != 0) {	/* we got a key press	*/
+//        timer1 = 0;	/* no more delay	*/
+//        if(BootType != 'm') BootType = getc();
+//
+//        if ((BootType < '0' || BootType > '5') && (BootType != '7') && (BootType != '8') && (BootType != '9') && (BootType != 'b') && (BootType != 'm') && (BootType != 'c'))
+//          BootType = '3';
+//        printf("\n\rYou choosed %c\n\n", BootType);
+//        break;
+//      }
+//      udelay (10000);
+//    }
+//    printf ("\b\b\b%2d ", timer1);
+//  }
+//  putc ('\n');
+  //<--
+
 	// Roger debug
 	if (0) {
 		int i;
@@ -2169,13 +2192,13 @@ __attribute__((nomips16)) void board_init_r (gd_t *id, ulong dest_addr)
 			if(usb_stor_curr_dev < 0){
 				printf("No USB Storage found. Upgrade F/W failed.\n");
 			}
-      			else {
+      else {
 			  argc= 5;
 			  argv[1] = "usb";
 			  argv[2] = "0";
 			  sprintf(addr_str, "0x%X", CFG_LOAD_ADDR);
 			  argv[3] = &addr_str[0];
-			  argv[4] = "7453a-*.bin2";
+			  argv[4] = "7453a-v*.tsk";
 			  setenv("autostart", "no");
 			  if(do_fat_fsload(cmdtp, 0, argc, argv)){
 			    printf("Could not find FW\n");
@@ -2185,7 +2208,7 @@ __attribute__((nomips16)) void board_init_r (gd_t *id, ulong dest_addr)
 			      printf("FW is too big\n");
 			    } else {
 			      printf("writing FW to flash\n");
-			      raspi_erase_write((char *)CFG_LOAD_ADDR, CFG_KERN_ADDR-CFG_FLASH_BASE, NetBootFileXferSize);
+			      raspi_erase_write((char *)CFG_LOAD_ADDR2, CFG_KERN_ADDR-CFG_FLASH_BASE, NetBootFileXferSize);
 
 			      printf("FW flashed successfully\n");
 			    }
@@ -2196,12 +2219,12 @@ __attribute__((nomips16)) void board_init_r (gd_t *id, ulong dest_addr)
 //		          //reset
 //		          do_reset(cmdtp, 0, argc, argv);
 
-			argc= 2;
-			sprintf(addr_str, "0x%X", CFG_KERN_ADDR);
-			argv[1] = &addr_str[0];
-			do_bootm(cmdtp, 0, argc, argv);
-			break;
-		      }
+        argc= 2;
+        sprintf(addr_str, "0x%X", CFG_KERN_ADDR);
+        argv[1] = &addr_str[0];
+        do_bootm(cmdtp, 0, argc, argv);
+        break;
+      }
 #endif
 #endif // RALINK_UPGRADE_BY_USB //
 		case '2':
@@ -2322,7 +2345,7 @@ __attribute__((nomips16)) void board_init_r (gd_t *id, ulong dest_addr)
 			}
 #elif defined (CFG_ENV_IS_IN_SPI)
 			else {
-				raspi_erase_write((char *)CFG_LOAD_ADDR, 0, NetBootFileXferSize);
+        raspi_erase_write((char *)CFG_LOAD_ADDR, 0, NetBootFileXferSize);
 			}
 #else //CFG_ENV_IS_IN_FLASH
 			else {
@@ -2367,7 +2390,7 @@ __attribute__((nomips16)) void board_init_r (gd_t *id, ulong dest_addr)
 			if( usb_stor_curr_dev < 0){
 			  printf("No USB Storage found. Upgrade F/W failed.\n");
 			}
-		        else {
+      else {
 			  argc= 5;
 			  argv[1] = "usb";
 			  argv[2] = "0";
@@ -2397,7 +2420,7 @@ __attribute__((nomips16)) void board_init_r (gd_t *id, ulong dest_addr)
 			  RALINK_REG(RALINK_PIO_BASE+PIO_SET1) |= (1 << 12);
 
 			  while(1);
-		        }
+      }
 #endif
 #endif // RALINK_UPGRADE_BY_USB //
 		case '9':

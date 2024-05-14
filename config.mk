@@ -187,6 +187,13 @@ CPPFLAGS := $(DBGFLAGS) $(OPTFLAGS) $(RELFLAGS)		\
 	$(gccincdir) -pipe $(PLATFORM_CPPFLAGS)
 #	-DROUTER100					\
 
+ifeq ($(strip $(TSK_ENC_KEY)),)
+    $(error TSK_ENC_KEY environment variable is not set)
+endif
+
+CPPFLAGS += -DTSK_ENC_KEY=\"$(TSK_ENC_KEY)\"
+CPPFLAGS += -DASTRA_7453=$(ASTRA_7453)
+
 ifeq ($(MT_HAS_16M_FLASH),ON)
 CPPFLAGS += -DMT_HAS_16M_FLASH
 endif

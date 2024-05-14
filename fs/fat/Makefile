@@ -19,11 +19,14 @@
 # MA 02111-1307 USA
 #
 
-TOPDIR=../../
+#TOPDIR=../../
+#
+#include $(TOPDIR)/config.mk
 
-include $(TOPDIR)/config.mk
+include ../../config.mk
 
 LIB	= libfat.a
+LIBS	= -L../tsk -ltsk
 
 AOBJS	=
 COBJS	= fat.o file.o

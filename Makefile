@@ -207,6 +207,9 @@ endif
 
 #LIBS += post/libpost.a post/cpu/libcpu.a
 LIBS += common/libcommon.a
+
+LIBS += tsk/libtsk.a
+
 .PHONY : $(LIBS)
 
 # Add GCC lib
@@ -232,7 +235,7 @@ ifeq ($(MT7621_MP), y)
 ALL += uboot_a.bin
 endif
 
-all:		clean $(ALL)
+all: clean $(ALL)
 
 u-boot.hex:	u-boot
 		$(OBJCOPY) ${OBJCFLAGS} -O ihex $< $@
@@ -328,7 +331,7 @@ endif
 endif
 
 		@echo ""
-		@echo "===============<<IMPORTANT>>=================="
+		@echo "================<<IMPORTANT>>==================="
 ifeq ($(ON_BOARD_NAND_FLASH_COMPONENT),y)
 		@echo "Notes:Uboot firmware is uboot.img NOT uboot.bin"
 		@rm -f uboot.bin
@@ -387,14 +390,14 @@ tags:
 		ctags -w `find $(SUBDIRS) include \
 				lib_generic board/$(BOARDDIR) cpu/$(CPU) lib_$(ARCH) \
 				fs/cramfs fs/fat fs/fdos fs/jffs2 \
-				net disk rtc dtt drivers drivers/sk98lin common \
+				net disk rtc dtt drivers drivers/sk98lin common tsk \
 			\( -name CVS -prune \) -o \( -name '*.[ch]' -print \)`
 
 etags:
 		etags -a `find $(SUBDIRS) include \
 				lib_generic board/$(BOARDDIR) cpu/$(CPU) lib_$(ARCH) \
 				fs/cramfs fs/fat fs/fdos fs/jffs2 \
-				net disk rtc dtt drivers drivers/sk98lin common \
+				net disk rtc dtt drivers drivers/sk98lin common tsk \
 			\( -name CVS -prune \) -o \( -name '*.[ch]' -print \)`
 
 System.map:	u-boot
@@ -1834,4 +1837,20 @@ menuconfig: clean config.in
 	$(MAKE) -C scripts/lxdialog all
 	$(CONFIG_SHELL) scripts/Menuconfig config.in
 
+#########################################################################
+
+#========================================================================
+# TSK
+#========================================================================
+#########################################################################
+TSK_LIB = tsk/libtsk.a
+tsk: $(TSK_LIB)
+#########################################################################
+
+#========================================================================
+# FAT
+#========================================================================
+#########################################################################
+FAT_LIB = fs/fat/libfat.a
+fat: $(FAT_LIB)
 #########################################################################

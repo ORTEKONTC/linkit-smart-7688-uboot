@@ -181,6 +181,7 @@ extern unsigned int  CFG_BLOCKSIZE;
 	#define CFG_MEMTEST_END		0x8A400000
 #else
 	#define	CFG_LOAD_ADDR		0x80100000	/* default load address	*/
+  #define	CFG_LOAD_ADDR2  0x820B0000  /* 1fb0000+100000 Address of decrypted data */
 	#define CFG_HTTP_DL_ADDR	0x80300000
 
 	#if defined(RT6855A_FPGA_BOARD) || defined(RT6855A_ASIC_BOARD) || defined(MT7620_FPGA_BOARD) || defined(MT7620_ASIC_BOARD) || defined(MT7628_FPGA_BOARD) || defined(MT7628_ASIC_BOARD)

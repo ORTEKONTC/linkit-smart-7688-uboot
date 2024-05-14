@@ -31,13 +31,15 @@
 #include <fat.h>
 #include <asm/byteorder.h>
 #include <asm/addrspace.h>
-#include <linux/compiler.h>
+//#include <linux/compiler.h>
 #include <part.h>
+#include "../../tsk/tsk.h"
+#include "../../tsk/Xtea.h"
 
 //#define FAT_DEBUG
 
 #ifdef	FAT_DEBUG
-#define	FAT_PRINTF(fmt,args...)	printf (fmt ,##args)
+#define	FAT_PRINTF(fmt,args...)	printf(fmt ,##args)
 #else
 #define FAT_PRINTF(fmt,args...)
 #endif
@@ -859,13 +861,19 @@ do_fat_read (const char *filename, void *buffer, unsigned long maxsize,
 	FAT_PRINTF("Sector size: %d, cluster size: %d\n", mydata->sect_size,
 	      mydata->clust_size);
 
+  FAT_PRINTF("filename1 %s\n", filename);
+
 	/* "cwd" is always the root... */
 	while (ISDIRDELIM(*filename))
 		filename++;
 
+  FAT_PRINTF("filename2 %s\n", filename);
+
 	/* Make a copy of the filename and convert it to lowercase */
 	strcpy(fnamecopy, filename);
 	downcase(fnamecopy);
+
+  FAT_PRINTF("fnamecopy %s\n", filename);
 
 	if (*fnamecopy == '\0') {
 		if (!dols)
@@ -883,6 +891,8 @@ do_fat_read (const char *filename, void *buffer, unsigned long maxsize,
 	} else if (dols) {
 		isdir = 1;
 	}
+
+  int tsk_detect = 0;
 
 	j = 0;
 	while (1) {
@@ -1014,37 +1024,35 @@ do_fat_read (const char *filename, void *buffer, unsigned long maxsize,
 				continue;
 			}
 
-            // TODO *-boot-*.bin for boot file name.
-            // TODO 7453a-*.bin2 for software file name.
-            char* p = (l_name[0] != '\0') ? l_name : s_name;
-            char *result = strstr(p, ".bin");
-            int bin = 0;
-            if (result) {
-                if (strlen(result) == 4) {
-                    bin = 1;
-                }
-            }
-            result = strstr(p, ".bin2");
-            int bin2 = 0;
-            if (result) {
-                if (strlen(result) == 5) {
-                    bin2 = 1;
-                }
-            }
-            if ((strstr(p, "-boot-") != NULL
-                 && bin
-                 && strstr(fnamecopy, "-boot-"))
-                || (strstr(p, "7453a-v") != NULL
-                    && bin2)) {
-                printf("reading %s\n", (l_name[0] != '\0') ? l_name : s_name);
-            }
-            else {
-                if (strcmp(fnamecopy, s_name) && strcmp(fnamecopy, l_name)) {
-                    FAT_PRINTF("RootMismatch: |%s|%s|\n", s_name, l_name);
-                    dentptr++;
-                    continue;
-                }
-            }
+      // TODO *-boot-*.bin for boot file name.
+      // TODO 7453a-*.tsk for software file name.
+      char* p = (l_name[0] != '\0') ? l_name : s_name;
+      char *result = strstr(p, ".bin");
+      int bin = 0;
+      if (result) {
+          if (strlen(result) == 4) {
+              bin = 1;
+          }
+      }
+      result = strstr(p, ".tsk");
+      if (result) {
+          if (strlen(result) == 4) {
+            tsk_detect = 1;
+          }
+      }
+      if ((strstr(p, "-boot-") != NULL
+           && bin
+           && strstr(fnamecopy, "-boot-"))
+          || (strstr(p, "7453a-v") != NULL
+              && tsk_detect
+              && strstr(fnamecopy, "7453a-v")))
+          printf("reading %s\n", (l_name[0] != '\0') ? l_name : s_name);
+      else
+          if (strcmp(fnamecopy, s_name) && strcmp(fnamecopy, l_name)) {
+              FAT_PRINTF("RootMismatch: |%s|%s|\n", s_name, l_name);
+              dentptr++;
+              continue;
+          }
 
 			if (isdir && !(dentptr->attr & ATTR_DIR))
 				goto exit;
@@ -1144,6 +1152,66 @@ rootdir_done:
 	ret = get_contents(mydata, dentptr, buffer, maxsize);
 	FAT_PRINTF("Size: %d, got: %ld\n", FAT2CPU32(dentptr->size), ret);
 
+  if (ret != -1 && tsk_detect) {
+    const char* enc_data = (const char*)KSEG1ADDR(buffer);
+    char* dec_data = (char*)KSEG1ADDR(CFG_LOAD_ADDR2);
+    FAT_PRINTF("enc_data: %lu, dec_data: %lu\n", enc_data, dec_data);
+    tsk_t* tsk = NULL;
+    int res = tskOpenMemory(enc_data, ret, &tsk);
+    if (res != TSK_OK) {
+      FAT_PRINTF("tskOpenMemory() error: %d\n", res);
+    }
+    else {
+      ret = -1; // false
+      print_tsk_struct(tsk);
+
+      int i;
+      for (i = 0; i < tskGetSectionCount(tsk); ++i) {
+        tsk_section_t* section = tskGetSection(tsk, i);
+        tsk_fw_section_t* header = tskGetFwSection(section);
+        if (!header)
+          continue;
+
+        if (header->type == ASTRA_7453) {
+          if (header->encryption != TSK_SECTION_ENCRYPTION_TYPE_XTEA_CFB) {
+            FAT_PRINTF("Tsk file encryption type is not supported\n");
+            break;
+          }
+
+          size_t bytes;
+          uint8_t iv[8];
+          long dec_size = 0;
+          makeInitVec(header, iv);
+          xtea_cfb_init(TSK_ENC_KEY, iv);
+          while((bytes = tskReadSectionData(section, dec_data, 512, TSK_SECTION_READ_FW_BINARY))) {
+            xtea_cfb_decrypt(dec_data, bytes);
+            dec_data += bytes;
+            dec_size += bytes;
+          }
+          int err = tskErrorSection(section);
+          if (err != TSK_OK)
+            FAT_PRINTF("Error occurred while reading section data from tsk: %d\n", err);
+          else {
+            FAT_PRINTF("Tsk decrypted successfully!\n");
+            FAT_PRINTF("dec_size: %lu\n", dec_size);
+            int j;
+            char* p = dec_data - 32;
+            for (j = 0; j < 32; ++j) {
+              FAT_PRINTF("%02X ", (unsigned char)p[j]);
+            }
+            ret = dec_size;
+          }
+        }
+        else
+          FAT_PRINTF("Unknown device type in tsk file\n");
+      }
+
+      res = tskClose(tsk);
+      if (res != TSK_OK)
+        FAT_PRINTF("tskClose() error\n");
+    }
+  }
+
 exit:
 	free(KSEG0ADDR(mydata->fatbuf));
 	return ret;
@@ -1224,6 +1292,6 @@ int file_fat_ls (const char *dir)
 
 long file_fat_read (const char *filename, void *buffer, unsigned long maxsize)
 {
-//	printf("reading %s\n", filename);
+  FAT_PRINTF("file_fat_read %s, %lu, %u\n", filename, (__u8*)(buffer), maxsize);
 	return do_fat_read(filename, buffer, maxsize, LS_NO);
 }
