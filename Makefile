@@ -208,7 +208,7 @@ endif
 #LIBS += post/libpost.a post/cpu/libcpu.a
 LIBS += common/libcommon.a
 
-LIBS += tsk/libtsk.a
+LIBS += util/tsk/libtsk.a
 
 .PHONY : $(LIBS)
 
@@ -390,14 +390,14 @@ tags:
 		ctags -w `find $(SUBDIRS) include \
 				lib_generic board/$(BOARDDIR) cpu/$(CPU) lib_$(ARCH) \
 				fs/cramfs fs/fat fs/fdos fs/jffs2 \
-				net disk rtc dtt drivers drivers/sk98lin common tsk \
+				net disk rtc dtt drivers drivers/sk98lin common util/tsk \
 			\( -name CVS -prune \) -o \( -name '*.[ch]' -print \)`
 
 etags:
 		etags -a `find $(SUBDIRS) include \
 				lib_generic board/$(BOARDDIR) cpu/$(CPU) lib_$(ARCH) \
 				fs/cramfs fs/fat fs/fdos fs/jffs2 \
-				net disk rtc dtt drivers drivers/sk98lin common tsk \
+				net disk rtc dtt drivers drivers/sk98lin common util/tsk \
 			\( -name CVS -prune \) -o \( -name '*.[ch]' -print \)`
 
 System.map:	u-boot
@@ -1843,7 +1843,7 @@ menuconfig: clean config.in
 # TSK
 #========================================================================
 #########################################################################
-TSK_LIB = tsk/libtsk.a
+TSK_LIB = util/tsk/libtsk.a
 tsk: $(TSK_LIB)
 #########################################################################
 
