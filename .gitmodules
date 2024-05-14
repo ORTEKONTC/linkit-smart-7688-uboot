@@ -1,4 +1,4 @@
 [submodule "util"]
 	path = util
-	url = :ext:${GIT_SSH_COMMAND} -p 65522 dev.security-hub.ru:home/git/astra-prime/util/uboot
+	url = ssh://dev.security-hub.ru:65522/home/git/astra-prime/util/uboot
 	branch = master
