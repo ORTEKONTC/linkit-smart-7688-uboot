@@ -2068,43 +2068,47 @@ __attribute__((nomips16)) void board_init_r (gd_t *id, ulong dest_addr)
       	    BootType = 'b';
   	  }
 	} else {
-		unsigned char mfg_mac[6] = { 0x00, 0x0c, 0x43, 0xe1, 0x76, 0x28 };
-		unsigned char mfg2_mac[6] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
-		unsigned char mfg3_mac[6] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
-		
-		raspi_read((char *) CFG_LOAD_ADDR, 0x40004, 6);
-        
-		//if ( !memcmp((void *) CFG_LOAD_ADDR, mfg_mac, 6) ) {
-		if ( (memcmp((void *) CFG_LOAD_ADDR, mfg_mac, 6)==0) || (memcmp((void *) CFG_LOAD_ADDR, mfg2_mac, 6)==0) || (memcmp((void *) CFG_LOAD_ADDR, mfg3_mac, 6)==0) ) {
-			BootType = 'm';
-			printf("mfg mac detected\n");
-			
-			char *cBD;
-			int iBD;
-            char buf[2];
-			cBD = getenv("BackDoor");
-			iBD = (int)simple_strtol(cBD, NULL, 10) + 1;
-            sprintf(buf, "%d", iBD);
-			//cBD = (char)(iBD+'0');
-			
-			//setenv("BackDoor", &cBD);
-            setenv("BackDoor", buf);
-		    saveenv();
-			
-			if(iBD >= 2)
-			{
-			  BootType = '4';
-			  printf("BackDoor(%c) detected\n", BootType);
-			  timer1=0;
-			  setenv("BackDoor", "0");
-			  saveenv();			  
-			}	
-			
-		}
+//		unsigned char mfg_mac[6] = { 0x00, 0x0c, 0x43, 0xe1, 0x76, 0x28 };
+//		unsigned char mfg2_mac[6] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+//		unsigned char mfg3_mac[6] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
+//
+//		raspi_read((char *) CFG_LOAD_ADDR, 0x40004, 6);
+//
+//		//if ( !memcmp((void *) CFG_LOAD_ADDR, mfg_mac, 6) ) {
+//		if ( (memcmp((void *) CFG_LOAD_ADDR, mfg_mac, 6)==0) || (memcmp((void *) CFG_LOAD_ADDR, mfg2_mac, 6)==0) || (memcmp((void *) CFG_LOAD_ADDR, mfg3_mac, 6)==0) ) {
+//			BootType = 'm';
+//			printf("mfg mac detected\n");
+//
+//			char *cBD;
+//			int iBD;
+//            char buf[2];
+//			cBD = getenv("BackDoor");
+//			iBD = (int)simple_strtol(cBD, NULL, 10) + 1;
+//            sprintf(buf, "%d", iBD);
+//			//cBD = (char)(iBD+'0');
+//
+//			//setenv("BackDoor", &cBD);
+//            setenv("BackDoor", buf);
+//		    saveenv();
+//
+//			if(iBD >= 2)
+//			{
+//			  BootType = '4';
+//			  printf("BackDoor(%c) detected\n", BootType);
+//			  timer1=0;
+//			  setenv("BackDoor", "0");
+//			  saveenv();
+//			}
+//
+//		}
 	}
 
   // TODO Delete after debugging ...
   //-->
+//  timer1= CONFIG_BOOTDELAY;
+//  if (BootType != '5' && BootType != 'b')
+//    BootType = '3';
+//
 //  OperationSelect();
 //  while (timer1 > 0) {
 //    --timer1;
@@ -2198,7 +2202,7 @@ __attribute__((nomips16)) void board_init_r (gd_t *id, ulong dest_addr)
 			  argv[2] = "0";
 			  sprintf(addr_str, "0x%X", CFG_LOAD_ADDR);
 			  argv[3] = &addr_str[0];
-			  argv[4] = "7453a-v*.tsk";
+			  argv[4] = "7453-a-v*.tsk";
 			  setenv("autostart", "no");
 			  if(do_fat_fsload(cmdtp, 0, argc, argv)){
 			    printf("Could not find FW\n");
@@ -2396,7 +2400,7 @@ __attribute__((nomips16)) void board_init_r (gd_t *id, ulong dest_addr)
 			  argv[2] = "0";
 			  sprintf(addr_str, "0x%X", CFG_LOAD_ADDR);
 			  argv[3] = &addr_str[0];
-			  argv[4] = "7453a-boot-*.bin"; // 7453a-boot-vt0_1_rev1.bin
+			  argv[4] = "7453_boot-a-v*.bin"; // 7453_boot-a-vt1_0_rev2.bin
 			  setenv("autostart", "no");
 			  if(do_fat_fsload(cmdtp, 0, argc, argv)){
 			    printf("Could not find bootloader\n");

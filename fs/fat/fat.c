@@ -1024,8 +1024,8 @@ do_fat_read (const char *filename, void *buffer, unsigned long maxsize,
 				continue;
 			}
 
-      // TODO *-boot-*.bin for boot file name.
-      // TODO 7453a-*.tsk for software file name.
+      // TODO 7453_boot-a-*.bin for boot file name.
+      // TODO 7453-a-*.tsk for software file name.
       char* p = (l_name[0] != '\0') ? l_name : s_name;
       char *result = strstr(p, ".bin");
       int bin = 0;
@@ -1040,12 +1040,12 @@ do_fat_read (const char *filename, void *buffer, unsigned long maxsize,
             tsk_detect = 1;
           }
       }
-      if ((strstr(p, "-boot-") != NULL
+      if ((strstr(p, "_boot-") != NULL
            && bin
-           && strstr(fnamecopy, "-boot-"))
-          || (strstr(p, "7453a-v") != NULL
+           && strstr(fnamecopy, "_boot-"))
+          || (strstr(p, "7453-a-v") != NULL
               && tsk_detect
-              && strstr(fnamecopy, "7453a-v")))
+              && strstr(fnamecopy, "7453-a-v")))
           printf("reading %s\n", (l_name[0] != '\0') ? l_name : s_name);
       else
           if (strcmp(fnamecopy, s_name) && strcmp(fnamecopy, l_name)) {
