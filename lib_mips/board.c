@@ -2202,17 +2202,17 @@ __attribute__((nomips16)) void board_init_r (gd_t *id, ulong dest_addr)
 			  argv[2] = "0";
 			  sprintf(addr_str, "0x%X", CFG_LOAD_ADDR);
 			  argv[3] = &addr_str[0];
-			  argv[4] = "7453-a-v*.tsk";
+			  argv[4] = "7453-*.tsk";
 			  setenv("autostart", "no");
 			  if(do_fat_fsload(cmdtp, 0, argc, argv)){
 			    printf("Could not find FW\n");
 			  } else {
 			    NetBootFileXferSize=simple_strtoul(getenv("filesize"), NULL, 16);
-			    if (NetBootFileXferSize > 0xfb0000 + flash_base) {
+			    if (NetBootFileXferSize > 0x1FF004A) { // 1fb0000+30000+10000+4a
 			      printf("FW is too big\n");
 			    } else {
 			      printf("writing FW to flash\n");
-			      raspi_erase_write((char *)CFG_LOAD_ADDR2, CFG_KERN_ADDR-CFG_FLASH_BASE, NetBootFileXferSize);
+			      raspi_erase_write((char *)CFG_LOAD_ADDR2, CFG_KERN_ADDR-CFG_FLASH_BASE, 0x1fb0000);
 
 			      printf("FW flashed successfully\n");
 			    }
@@ -2400,17 +2400,17 @@ __attribute__((nomips16)) void board_init_r (gd_t *id, ulong dest_addr)
 			  argv[2] = "0";
 			  sprintf(addr_str, "0x%X", CFG_LOAD_ADDR);
 			  argv[3] = &addr_str[0];
-			  argv[4] = "7453_boot-a-v*.bin"; // 7453_boot-a-vt1_0_rev2.bin
+			  argv[4] = "7453_boot-*.tsk";
 			  setenv("autostart", "no");
 			  if(do_fat_fsload(cmdtp, 0, argc, argv)){
 			    printf("Could not find bootloader\n");
 			  } else {
 			    NetBootFileXferSize=simple_strtoul(getenv("filesize"), NULL, 16);
-			    if (NetBootFileXferSize > 0x30000) {
+			    if (NetBootFileXferSize > 0x1FF004A) { // 1fb0000+30000+10000+4a
 			      printf("Bootloader is too big\n");
 			    } else {
 			      printf("writing bootloader to flash\n");
-			      raspi_erase_write((char *)CFG_LOAD_ADDR, 0, NetBootFileXferSize);
+			      raspi_erase_write((char *)CFG_LOAD_ADDR2, 0, 0x30000);
 
 			      printf("Bootloader flashed successfully\n");
 			    }

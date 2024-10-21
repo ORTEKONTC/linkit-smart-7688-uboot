@@ -191,8 +191,28 @@ ifeq ($(strip $(TSK_ENC_KEY)),)
     $(error TSK_ENC_KEY environment variable is not set)
 endif
 
+ifeq ($(strip $(ASTRA_7453)),)
+    $(error ASTRA_7453 environment variable is not set)
+endif
+
+ifeq ($(strip $(TSK_SIGN_KEY)),)
+    $(error TSK_SIGN_KEY environment variable is not set)
+endif
+
+ifneq ($(wildcard $(TSK_SIGN_KEY)),)
+    TSK_SIGN_KEY_CONTENT := $(shell xxd -p $(TSK_SIGN_KEY) | tr -d '\n')
+#    $(info TSK_SIGN_KEY in hex: $(TSK_SIGN_KEY_CONTENT))
+   	SIGN_KEY_LENGTH := $(shell echo -n $(TSK_SIGN_KEY_CONTENT) | wc -c)
+   	ifneq ($(SIGN_KEY_LENGTH), 64)
+        $(error TSK_SIGN_KEY must be exactly 64 characters, but got $(SIGN_KEY_LENGTH))
+    endif
+else
+    $(error TSK_SIGN_KEY does not point to a valid file)
+endif
+
 CPPFLAGS += -DTSK_ENC_KEY=\"$(TSK_ENC_KEY)\"
 CPPFLAGS += -DASTRA_7453=$(ASTRA_7453)
+CPPFLAGS += -DTSK_SIGN_KEY=\"$(TSK_SIGN_KEY_CONTENT)\"
 
 ifeq ($(MT_HAS_16M_FLASH),ON)
 CPPFLAGS += -DMT_HAS_16M_FLASH

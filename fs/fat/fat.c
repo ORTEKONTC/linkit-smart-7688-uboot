@@ -35,6 +35,8 @@
 #include <part.h>
 #include "../../util/tsk/tsk.h"
 #include "../../util/tsk/Xtea.h"
+#include "../../util/tsk/eddsa/ed25519.h"
+#include "../../util/tsk/eddsa/sha512.h"
 
 //#define FAT_DEBUG
 
@@ -206,8 +208,8 @@ static __u32 get_fatent (fsdata *mydata, __u32 entry)
 		return ret;
 	}
 
-	FAT_PRINTF("FAT%d: entry: 0x%04x = %d, offset: 0x%04x = %d\n",
-	       mydata->fatsize, entry, entry, offset, offset);
+//	FAT_PRINTF("FAT%d: entry: 0x%04x = %d, offset: 0x%04x = %d\n",
+//	       mydata->fatsize, entry, entry, offset, offset);
 
 	/* Read a new block of FAT entries into the cache. */
 	if (bufnum != mydata->fatbufnum) {
@@ -268,8 +270,8 @@ static __u32 get_fatent (fsdata *mydata, __u32 entry)
 		}
 		break;
 	}
-	FAT_PRINTF("FAT%d: ret: %08x, offset: %04x\n",
-	       mydata->fatsize, ret, offset);
+//	FAT_PRINTF("FAT%d: ret: %08x, offset: %04x\n",
+//	       mydata->fatsize, ret, offset);
 
 	return ret;
 }
@@ -1024,35 +1026,32 @@ do_fat_read (const char *filename, void *buffer, unsigned long maxsize,
 				continue;
 			}
 
-      // TODO 7453_boot-a-*.bin for boot file name.
-      // TODO 7453-a-*.tsk for software file name.
+      // TODO 7453_boot-*.tsk for boot file name.
+      // TODO 7453-*.tsk for software file name.
       char* p = (l_name[0] != '\0') ? l_name : s_name;
-      char *result = strstr(p, ".bin");
-      int bin = 0;
-      if (result) {
-          if (strlen(result) == 4) {
-              bin = 1;
-          }
-      }
-      result = strstr(p, ".tsk");
+      char *result = strstr(p, ".tsk");
       if (result) {
           if (strlen(result) == 4) {
             tsk_detect = 1;
           }
       }
-      if ((strstr(p, "_boot-") != NULL
-           && bin
-           && strstr(fnamecopy, "_boot-"))
-          || (strstr(p, "7453-a-v") != NULL
+      if ((strstr(p, "7453_boot-") != NULL
+           && tsk_detect
+           && strstr(fnamecopy, "7453_boot-"))) {
+        tsk_detect = 2;
+        printf("reading %s\n", (l_name[0] != '\0') ? l_name : s_name);
+      }
+      else if (strstr(p, "7453-") != NULL
               && tsk_detect
-              && strstr(fnamecopy, "7453-a-v")))
-          printf("reading %s\n", (l_name[0] != '\0') ? l_name : s_name);
-      else
-          if (strcmp(fnamecopy, s_name) && strcmp(fnamecopy, l_name)) {
-              FAT_PRINTF("RootMismatch: |%s|%s|\n", s_name, l_name);
-              dentptr++;
-              continue;
-          }
+              && strstr(fnamecopy, "7453-")) {
+        tsk_detect = 3;
+        printf("reading %s\n", (l_name[0] != '\0') ? l_name : s_name);
+      }
+      else if (strcmp(fnamecopy, s_name) && strcmp(fnamecopy, l_name)) {
+        FAT_PRINTF("RootMismatch: |%s|%s|\n", s_name, l_name);
+        dentptr++;
+        continue;
+      }
 
 			if (isdir && !(dentptr->attr & ATTR_DIR))
 				goto exit;
@@ -1162,48 +1161,62 @@ rootdir_done:
       FAT_PRINTF("tskOpenMemory() error: %d\n", res);
     }
     else {
-      ret = -1; // false
-      print_tsk_struct(tsk);
+      FAT_PRINTF("tskHasSignature\n");
+      if (tskHasSignature(tsk) == 1) {
+        FAT_PRINTF("verifySignature\n");
+        if (verifySignature(tsk) == 1) {
+          ret = -1; // false
+          FAT_PRINTF("print_tsk_struct\n");
+          print_tsk_struct(tsk);
 
-      int i;
-      for (i = 0; i < tskGetSectionCount(tsk); ++i) {
-        tsk_section_t* section = tskGetSection(tsk, i);
-        tsk_fw_section_t* header = tskGetFwSection(section);
-        if (!header)
-          continue;
+          int i;
+          for (i = 0; i < tskGetSectionCount(tsk); ++i) {
+            tsk_section_t* section = tskGetSection(tsk, i);
+            tsk_fw_section_t* header = (tsk_detect == 2) ? tskGetBootloaderSection(section) : tskGetFwSection(section);
+            if (!header)
+              continue;
 
-        if (header->type == ASTRA_7453) {
-          if (header->encryption != TSK_SECTION_ENCRYPTION_TYPE_XTEA_CFB) {
-            FAT_PRINTF("Tsk file encryption type is not supported\n");
-            break;
-          }
+            if (header->type == ASTRA_7453) {
+              if (header->encryption != TSK_SECTION_ENCRYPTION_TYPE_XTEA_CFB) {
+                FAT_PRINTF("Tsk file encryption type is not supported\n");
+                break;
+              }
 
-          size_t bytes;
-          uint8_t iv[8];
-          long dec_size = 0;
-          makeInitVec(header, iv);
-          xtea_cfb_init(TSK_ENC_KEY, iv);
-          while((bytes = tskReadSectionData(section, dec_data, 512, TSK_SECTION_READ_FW_BINARY))) {
-            xtea_cfb_decrypt(dec_data, bytes);
-            dec_data += bytes;
-            dec_size += bytes;
-          }
-          int err = tskErrorSection(section);
-          if (err != TSK_OK)
-            FAT_PRINTF("Error occurred while reading section data from tsk: %d\n", err);
-          else {
-            FAT_PRINTF("Tsk decrypted successfully!\n");
-            FAT_PRINTF("dec_size: %lu\n", dec_size);
-            int j;
-            char* p = dec_data - 32;
-            for (j = 0; j < 32; ++j) {
-              FAT_PRINTF("%02X ", (unsigned char)p[j]);
+              size_t bytes;
+              uint8_t iv[8];
+              long dec_size = 0;
+              makeInitVec(header, iv);
+              xtea_cfb_init(TSK_ENC_KEY, iv);
+              while ((bytes = tskReadSectionData(section, dec_data, 512,
+                                                 TSK_SECTION_READ_FW_BINARY))) {
+                xtea_cfb_decrypt(dec_data, bytes);
+                dec_data += bytes;
+                dec_size += bytes;
+              }
+              int err = tskErrorSection(section);
+              if (err != TSK_OK)
+                FAT_PRINTF("Error occurred while reading section data from tsk: %d\n", err);
+              else {
+                FAT_PRINTF("Tsk decrypted successfully!\n");
+                FAT_PRINTF("dec_size: %lu\n", dec_size);
+                int j;
+                char *p = dec_data - 32;
+                for (j = 0; j < 32; ++j)
+                  FAT_PRINTF("%02X ", (unsigned char) p[j]);
+                ret = dec_size;
+              }
             }
-            ret = dec_size;
+            else {
+              FAT_PRINTF("Unknown device type in tsk file\n");
+            }
           }
         }
-        else
-          FAT_PRINTF("Unknown device type in tsk file\n");
+        else {
+          FAT_PRINTF("Verification of signature of tsk file failed\n");
+        }
+      }
+      else {
+        FAT_PRINTF("Tsk file not signed\n");
       }
 
       res = tskClose(tsk);
