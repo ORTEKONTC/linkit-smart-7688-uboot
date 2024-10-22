@@ -2406,7 +2406,7 @@ __attribute__((nomips16)) void board_init_r (gd_t *id, ulong dest_addr)
 			    printf("Could not find bootloader\n");
 			  } else {
 			    NetBootFileXferSize=simple_strtoul(getenv("filesize"), NULL, 16);
-			    if (NetBootFileXferSize > 0x1FF004A) { // 1fb0000+30000+10000+4a
+			    if (NetBootFileXferSize > 0x30000) {
 			      printf("Bootloader is too big\n");
 			    } else {
 			      printf("writing bootloader to flash\n");
